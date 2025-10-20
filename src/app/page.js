@@ -39,7 +39,7 @@ export default function Home() {
   const orderSectionRef = useRef(null);
   
   // Configuration - CHANGE THIS TO YOUR WHATSAPP NUMBER
-  const WHATSAPP_NUMBER = "212660059899"; // Format: country code + number (no + or spaces)
+  const WHATSAPP_NUMBER = "212621526099"; // Format: country code + number (no + or spaces)
   
   // Mock data - Replace with real API call
   const remainingCapacity = 648;
