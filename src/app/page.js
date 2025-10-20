@@ -20,35 +20,50 @@ import {
   BOX_SIZES,
 } from "./Shared";
 
-
 export default function Home() {
+  // Language and UI State
   const [language, setLanguage] = useState("fr");
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Order State
   const [selectedCity, setSelectedCity] = useState(null);
   const [selectedDate, setSelectedDate] = useState(undefined);
   const [selectedBoxSize, setSelectedBoxSize] = useState(null);
   const [selectedFlavors, setSelectedFlavors] = useState([]);
   const [surpriseMe, setSurpriseMe] = useState(false);
-  const [showConfirmation, setShowConfirmation] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const [customerData, setCustomerData] = useState(null);
+  
+  // Refs
   const orderSectionRef = useRef(null);
-
-  // TODO: remove mock functionality - replace with real API call
+  
+  // Configuration - CHANGE THIS TO YOUR WHATSAPP NUMBER
+  const WHATSAPP_NUMBER = "212660059899"; // Format: country code + number (no + or spaces)
+  
+  // Mock data - Replace with real API call
   const remainingCapacity = 648;
-
-  // Custom toast function (simple alert replacement - you can replace with a toast library later)
+  
+  // Utility Functions
   const showToast = (title, description, variant = "default") => {
     alert(`${title}\n${description}`);
   };
-
+  
+  const generateOrderNumber = () => {
+    return Math.random()
+      .toString(36)
+      .substring(2, 10)
+      .toUpperCase();
+  };
+  
+  // Handlers
   const handleScrollToOrder = () => {
     orderSectionRef.current?.scrollIntoView({
       behavior: "smooth",
       block: "start",
     });
   };
-
+  
   const handleLanguageToggle = () => {
     const newLanguage = language === "fr" ? "ar" : "fr";
     setLanguage(newLanguage);
@@ -56,11 +71,27 @@ export default function Home() {
     htmlElement.setAttribute("lang", newLanguage);
     htmlElement.setAttribute("dir", newLanguage === "ar" ? "rtl" : "ltr");
   };
-
+  
+  const handleCitySelection = (city) => {
+    setSelectedCity(city);
+    
+    // Clear box selection if the new city doesn't support the current box
+    if (selectedBoxSize) {
+      const newCityData = CITIES.find((c) => c.name === city);
+      const boxData = BOX_SIZES.find((b) => b.pieces === selectedBoxSize);
+      
+      if (boxData?.regionRestricted && !newCityData?.inSaleRabatRegion) {
+        setSelectedBoxSize(null);
+        setSelectedFlavors([]);
+        setSurpriseMe(false);
+      }
+    }
+  };
+  
   const handleSurpriseMeChange = (value, maxFlavors) => {
     setSurpriseMe(value);
     if (value) {
-      // TODO: remove mock functionality - implement real surprise selection
+      // Randomly select flavors for surprise option
       const randomFlavors = [...FLAVORS]
         .sort(() => 0.5 - Math.random())
         .slice(0, maxFlavors)
@@ -70,8 +101,58 @@ export default function Home() {
       setSelectedFlavors([]);
     }
   };
+  
+  const formatWhatsAppMessage = (data, orderNum) => {
+    const boxData = BOX_SIZES.find((b) => b.pieces === selectedBoxSize);
+    const cityData = CITIES.find((c) => c.name === selectedCity);
+    const deliveryPrice = cityData?.deliveryPrice || 0;
+    const boxPrice = boxData?.price || 0;
+    const total = boxPrice + deliveryPrice;
+    
+    const message = `
+🎉 *NOUVELLE COMMANDE MACARONESS* 🎉
 
+📦 *Détails de la commande:*
+• Numéro: #${orderNum}
+• Boîte: ${selectedBoxSize} pièces
+• Prix boîte: ${boxPrice} MAD
+• Livraison: ${deliveryPrice} MAD
+• *TOTAL: ${total} MAD*
+
+👤 *Informations Client:*
+• Nom: ${data.customerName}
+• Téléphone: ${data.phone}
+${data.address ? `• Adresse: ${data.address}` : ''}
+${data.notes ? `• Notes: ${data.notes}` : ''}
+
+📍 *Détails Livraison:*
+• Ville: ${selectedCity}
+• Date: ${format(selectedDate, "EEEE dd MMMM yyyy", { locale: fr })}
+• Délai: ${cityData?.deliveryHours === 24 ? '24h' : '48h'}
+
+🍰 *Saveurs sélectionnées:*
+${surpriseMe 
+  ? '✨ Surprise! (Sélection du chef)' 
+  : selectedFlavors.length > 0 
+    ? selectedFlavors.map(f => `• ${f}`).join('\n')
+    : '• Aucune sélection de saveur requise'
+}
+
+━━━━━━━━━━━━━━━━━
+📅 Commande passée le: ${format(new Date(), "dd/MM/yyyy 'à' HH:mm", { locale: fr })}
+`.trim();
+    
+    return message;
+  };
+  
+  const sendToWhatsApp = (message) => {
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappURL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodedMessage}`;
+    window.open(whatsappURL, '_blank');
+  };
+  
   const handleSubmit = async (data) => {
+    // Validation
     if (!selectedCity || !selectedDate || !selectedBoxSize) {
       showToast(
         language === "fr" ? "Erreur" : "خطأ",
@@ -82,8 +163,7 @@ export default function Home() {
       );
       return;
     }
-
-    // Only check flavors if the box requires flavor selection
+    
     const boxData = BOX_SIZES.find((b) => b.pieces === selectedBoxSize);
     const requiresFlavors = boxData && boxData.maxFlavors > 0;
     
@@ -97,38 +177,29 @@ export default function Home() {
       );
       return;
     }
-
-    // TODO: remove mock functionality - replace with real API call
+    
     setIsSubmitting(true);
+    
+    // Generate order number
+    const orderNum = generateOrderNumber();
+    
+    // Store customer data for confirmation page
+    setCustomerData(data);
+    
+    // Format and send WhatsApp message
+    const whatsappMessage = formatWhatsAppMessage(data, orderNum);
+    sendToWhatsApp(whatsappMessage);
+    
+    // Show confirmation after delay
     setTimeout(() => {
-      const mockOrderNumber = Math.random()
-        .toString(36)
-        .substring(2, 10)
-        .toUpperCase();
-      setOrderNumber(mockOrderNumber);
+      setOrderNumber(orderNum);
       setShowConfirmation(true);
       setIsSubmitting(false);
-      
-      const selectedCityData = CITIES.find((c) => c.name === selectedCity);
-      const deliveryPrice = selectedCityData?.deliveryPrice || 0;
-      const boxPrice = boxData?.price || 0;
-      const total = boxPrice + deliveryPrice;
-      
-      console.log("Order submitted:", {
-        data,
-        selectedCity,
-        selectedDate,
-        selectedBoxSize,
-        selectedFlavors,
-        surpriseMe,
-        boxPrice,
-        deliveryPrice,
-        total,
-      });
     }, 1500);
   };
-
+  
   const handleNewOrder = () => {
+    // Reset all state
     setShowConfirmation(false);
     setSelectedCity(null);
     setSelectedDate(undefined);
@@ -136,43 +207,47 @@ export default function Home() {
     setSelectedFlavors([]);
     setSurpriseMe(false);
     setOrderNumber("");
+    setCustomerData(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-
-  if (showConfirmation && selectedDate && selectedBoxSize) {
-    const selectedBox = BOX_SIZES.find((b) => b.pieces === selectedBoxSize);
-    const selectedCityData = CITIES.find((c) => c.name === selectedCity);
-    const deliveryPrice = selectedCityData?.deliveryPrice || 0;
-    const totalPrice = (selectedBox?.price || 0) + deliveryPrice;
-
-    return (
-      <OrderConfirmation
-        orderNumber={orderNumber}
-        boxSize={selectedBoxSize}
-        priceMad={totalPrice}
-        customerName="Client"
-        deliveryDate={format(selectedDate, "PPP", { locale: fr })}
-        onNewOrder={handleNewOrder}
-        language={language}
-      />
-    );
-  }
-
+  
+  // Computed Values
   const selectedCityData = CITIES.find((c) => c.name === selectedCity);
   const deliveryHours = selectedCityData?.deliveryHours || 24;
   const inSaleRabatRegion = selectedCityData?.inSaleRabatRegion || false;
-
+  
   const selectedBoxData = BOX_SIZES.find((b) => b.pieces === selectedBoxSize);
   const maxFlavors = selectedBoxData?.maxFlavors || 0;
   const needsFlavorSelection = maxFlavors > 0;
-
+  
   const canCheckout =
     selectedCity &&
     selectedDate &&
     selectedBoxSize &&
     remainingCapacity >= MIN_AVAILABLE_FOR_ORDER &&
     (!needsFlavorSelection || surpriseMe || selectedFlavors.length > 0);
-
+  
+  // Render Confirmation Page
+  if (showConfirmation && selectedDate && selectedBoxSize) {
+    const selectedBox = BOX_SIZES.find((b) => b.pieces === selectedBoxSize);
+    const selectedCityData = CITIES.find((c) => c.name === selectedCity);
+    const deliveryPrice = selectedCityData?.deliveryPrice || 0;
+    const totalPrice = (selectedBox?.price || 0) + deliveryPrice;
+    
+    return (
+      <OrderConfirmation
+        orderNumber={orderNumber}
+        boxSize={selectedBoxSize}
+        priceMad={totalPrice}
+        customerName={customerData?.customerName || "Client"}
+        deliveryDate={format(selectedDate, "PPP", { locale: fr })}
+        onNewOrder={handleNewOrder}
+        language={language}
+      />
+    );
+  }
+  
+  // Render Main Page
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-blue-50">
       <Navbar
@@ -180,35 +255,27 @@ export default function Home() {
         onLanguageToggle={handleLanguageToggle}
         onCommanderClick={handleScrollToOrder}
       />
-
-      <HeroSection onCommanderClick={handleScrollToOrder} language={language} />
-
+      
+      <HeroSection 
+        onCommanderClick={handleScrollToOrder} 
+        language={language} 
+      />
+      
       <div
         ref={orderSectionRef}
         className="max-w-7xl mx-auto px-6 md:px-8 py-12 md:py-20"
       >
         <div className="grid lg:grid-cols-3 gap-8">
+          {/* Main Content */}
           <div className="lg:col-span-2 space-y-12">
+            {/* City Selection */}
             <CitySelector
               selectedCity={selectedCity}
-              onSelectCity={(city) => {
-                setSelectedCity(city);
-                
-                // Clear box selection if the new city doesn't support the current box
-                if (selectedBoxSize) {
-                  const newCityData = CITIES.find((c) => c.name === city);
-                  const boxData = BOX_SIZES.find((b) => b.pieces === selectedBoxSize);
-                  
-                  if (boxData?.regionRestricted && !newCityData?.inSaleRabatRegion) {
-                    setSelectedBoxSize(null);
-                    setSelectedFlavors([]);
-                    setSurpriseMe(false);
-                  }
-                }
-              }}
+              onSelectCity={handleCitySelection}
               language={language}
             />
-
+            
+            {/* Multiple Orders Info */}
             <div 
               className="p-4 rounded-xl bg-blue-50 border border-blue-200"
               data-testid="info-multiple-orders"
@@ -219,7 +286,8 @@ export default function Home() {
                   : "لطلب عدة علب، يرجى تقديم طلب واحد وإعادة الطلب بعد التأكيد."}
               </p>
             </div>
-
+            
+            {/* Date Selection (shows after city selection) */}
             {selectedCity && (
               <div className="space-y-6">
                 <DatePicker
@@ -228,7 +296,7 @@ export default function Home() {
                   language={language}
                   deliveryHours={deliveryHours}
                 />
-
+                
                 {selectedDate && (
                   <AvailabilityBar
                     remaining={remainingCapacity}
@@ -237,7 +305,8 @@ export default function Home() {
                 )}
               </div>
             )}
-
+            
+            {/* Box and Flavor Selection (shows after date selection) */}
             {selectedCity && selectedDate && remainingCapacity >= MIN_AVAILABLE_FOR_ORDER && (
               <>
                 <BoxSelector
@@ -246,7 +315,7 @@ export default function Home() {
                   language={language}
                   inSaleRabatRegion={inSaleRabatRegion}
                 />
-
+                
                 {selectedBoxSize && needsFlavorSelection && (
                   <FlavorSelector
                     selectedFlavors={selectedFlavors}
@@ -257,7 +326,8 @@ export default function Home() {
                     maxFlavors={maxFlavors}
                   />
                 )}
-
+                
+                {/* Checkout Form (shows when all required fields are selected) */}
                 {canCheckout && (
                   <div className="max-w-2xl">
                     <CheckoutForm
@@ -269,7 +339,8 @@ export default function Home() {
                 )}
               </>
             )}
-
+            
+            {/* Sold Out Message */}
             {selectedCity && selectedDate && remainingCapacity < MIN_AVAILABLE_FOR_ORDER && (
               <div className="p-8 rounded-2xl bg-red-50 border border-red-200 text-center">
                 <p className="text-2xl font-serif font-semibold text-red-600">
@@ -285,7 +356,8 @@ export default function Home() {
               </div>
             )}
           </div>
-
+          
+          {/* Order Summary Sidebar */}
           <div className="lg:col-span-1">
             <OrderSummary
               boxSize={selectedBoxSize}
