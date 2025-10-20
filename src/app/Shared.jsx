@@ -146,7 +146,7 @@ export const CITIES = [
   { name: "Tiddas", nameAr: "", deliveryHours: 24, inSaleRabatRegion: false, deliveryPrice: 40 },
   { name: "Tiflet", nameAr: "", deliveryHours: 24, inSaleRabatRegion: false, deliveryPrice: 35 },
   { name: "Tit mellil", nameAr: "", deliveryHours: 24, inSaleRabatRegion: false, deliveryPrice: 40 },
-  { name: "Tizi Ouasli", nameAr: "", deliveryHours: 24, inSaleRabatRegion: false, deliveryPrice: 40 },
+  { name: "Tizi Ouasl", nameAr: "", deliveryHours: 24, inSaleRabatRegion: false, deliveryPrice: 40 },
   { name: "Youssoufia", nameAr: "", deliveryHours: 24, inSaleRabatRegion: false, deliveryPrice: 40 },
   { name: "Zrizer", nameAr: "", deliveryHours: 24, inSaleRabatRegion: false, deliveryPrice: 40 },
   { name: "Ain taoujdate", nameAr: "", deliveryHours: 48, inSaleRabatRegion: false, deliveryPrice: 40 },
