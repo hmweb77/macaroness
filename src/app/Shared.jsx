@@ -152,7 +152,7 @@ export const CITIES = [
   { name: "Ain taoujdate", nameAr: "عين تاوجداتي", deliveryHours: 48, inSaleRabatRegion: false, deliveryPrice: 40 },
   { name: "Dakhla", nameAr: "الداخلة", deliveryHours: 48, inSaleRabatRegion: false, deliveryPrice: 40 },
   { name: "Guelmim", nameAr: "كلميم", deliveryHours: 48, inSaleRabatRegion: false, deliveryPrice: 40 },
-  { name: "Laayoune", nameAr: "العيون", deliveryHours: 48, inSaleRabatRegion: false, deliveryPrice: 40 },
+  { name: "Laayoun", nameAr: "العيون", deliveryHours: 48, inSaleRabatRegion: false, deliveryPrice: 40 },
   { name: "Merzouga", nameAr: "ميرزوݣا", deliveryHours: 48, inSaleRabatRegion: false, deliveryPrice: 40 },
   { name: "Midelt", nameAr: "ميدلت", deliveryHours: 48, inSaleRabatRegion: false, deliveryPrice: 40 },
   { name: "Nador", nameAr: "الناظور", deliveryHours: 48, inSaleRabatRegion: false, deliveryPrice: 40 },
