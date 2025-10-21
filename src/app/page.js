@@ -21,7 +21,7 @@ import {
 } from "./Shared";
 
 // Google Sheets configuration
-const GOOGLE_SCRIPT_URL = process.env.NEXT_PUBLIC_GOOGLE_SCRIPT_URL || 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE';
+const GOOGLE_SCRIPT_URL = process.env.NEXT_PUBLIC_GOOGLE_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbyCaJ8sXxOrIPs6PT-5HTYMG3Q8OHhc4H5s3YmzpJnzkYJSS2g9Cq8PGzXMqXhXzMM/exec';
 const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "212621526099";
 
 // Function to save order to Google Sheets
