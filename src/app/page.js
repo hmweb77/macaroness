@@ -20,6 +20,33 @@ import {
   BOX_SIZES,
 } from "./Shared";
 
+// Google Sheets configuration
+const GOOGLE_SCRIPT_URL = process.env.NEXT_PUBLIC_GOOGLE_SCRIPT_URL || 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE';
+const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "212621526099";
+
+// Function to save order to Google Sheets
+const saveOrderToSheets = async (orderData) => {
+  try {
+    const response = await fetch(GOOGLE_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors', // Google Apps Script doesn't support CORS
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(orderData)
+    });
+    
+    // Since we're using no-cors, we won't get the actual response
+    // but the request will still be processed by Google Apps Script
+    console.log('Order saved to Google Sheets');
+    return { success: true };
+  } catch (error) {
+    console.error('Error saving to Google Sheets:', error);
+    // Don't block the order if sheets fails
+    return { success: false, error: error.message };
+  }
+};
+
 export default function Home() {
   // Language and UI State
   const [language, setLanguage] = useState("fr");
@@ -37,9 +64,6 @@ export default function Home() {
   
   // Refs
   const orderSectionRef = useRef(null);
-  
-  // Configuration - CHANGE THIS TO YOUR WHATSAPP NUMBER
-  const WHATSAPP_NUMBER = "212621526099"; // Format: country code + number (no + or spaces)
   
   // Mock data - Replace with real API call
   const remainingCapacity = 648;
@@ -180,22 +204,82 @@ ${surpriseMe
     
     setIsSubmitting(true);
     
-    // Generate order number
-    const orderNum = generateOrderNumber();
-    
-    // Store customer data for confirmation page
-    setCustomerData(data);
-    
-    // Format and send WhatsApp message
-    const whatsappMessage = formatWhatsAppMessage(data, orderNum);
-    sendToWhatsApp(whatsappMessage);
-    
-    // Show confirmation after delay
-    setTimeout(() => {
+    try {
+      // Generate order number
+      const orderNum = generateOrderNumber();
+      
+      // Calculate prices
+      const cityData = CITIES.find((c) => c.name === selectedCity);
+      const deliveryPrice = cityData?.deliveryPrice || 0;
+      const boxPrice = boxData?.price || 0;
+      const total = boxPrice + deliveryPrice;
+      
+      // Prepare order data for Google Sheets
+      const orderDataForSheets = {
+        orderNumber: orderNum,
+        customerName: data.customerName,
+        phone: data.phone,
+        address: data.address || '',
+        notes: data.notes || '',
+        city: selectedCity,
+        deliveryDate: format(selectedDate, "dd/MM/yyyy", { locale: fr }),
+        boxSize: `${selectedBoxSize} pièces`,
+        totalPrice: `${total} MAD`,
+        flavors: surpriseMe 
+          ? 'Surprise' 
+          : selectedFlavors.length > 0 
+            ? selectedFlavors.join(', ')
+            : 'Aucune',
+        surpriseMe: surpriseMe,
+        orderDateTime: format(new Date(), "dd/MM/yyyy HH:mm", { locale: fr })
+      };
+      
+      // Save to Google Sheets (non-blocking)
+      saveOrderToSheets(orderDataForSheets).then(result => {
+        if (result.success) {
+          console.log('Order successfully saved to Google Sheets');
+        } else {
+          console.log('Failed to save to Google Sheets, but order continues');
+        }
+      });
+      
+      // Store customer data for confirmation page
+      setCustomerData(data);
       setOrderNumber(orderNum);
-      setShowConfirmation(true);
+      
+      // Show loading message
+      showToast(
+        language === "fr" ? "Traitement..." : "معالجة...",
+        language === "fr" 
+          ? "Enregistrement de votre commande..." 
+          : "جاري حفظ طلبك...",
+        "default"
+      );
+      
+      // Wait a bit to ensure Google Sheets request is sent
+      setTimeout(() => {
+        // Format and send WhatsApp message
+        const whatsappMessage = formatWhatsAppMessage(data, orderNum);
+        sendToWhatsApp(whatsappMessage);
+        
+        // Show confirmation page after a brief delay
+        setTimeout(() => {
+          setShowConfirmation(true);
+          setIsSubmitting(false);
+        }, 500);
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error processing order:', error);
       setIsSubmitting(false);
-    }, 1500);
+      showToast(
+        language === "fr" ? "Erreur" : "خطأ",
+        language === "fr"
+          ? "Une erreur s'est produite. Veuillez réessayer."
+          : "حدث خطأ. يرجى المحاولة مرة أخرى.",
+        "destructive"
+      );
+    }
   };
   
   const handleNewOrder = () => {
