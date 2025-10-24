@@ -186,38 +186,43 @@ useEffect(() => {
       .filter(f => !excludedFlavors.includes(f.name))
       .map(f => f.name);
     
+    // Format phone number for WhatsApp link (remove spaces, dashes, etc.)
+    const cleanPhone = data.phone.replace(/[\s\-\(\)]/g, '');
+    // Ensure phone starts with country code
+    const phoneForLink = cleanPhone.startsWith('+') ? cleanPhone : `+${cleanPhone}`;
+    
     const message = `
-🎉 *NOUVELLE COMMANDE MACARONESS* 🎉
-
-📦 *Détails de la commande:*
-• Numéro: #${orderNum}
-• Boîte: ${selectedBoxSize} pièces
-• Prix boîte: ${boxPrice} MAD
-• Livraison: ${deliveryPrice} MAD
-• *TOTAL: ${total} MAD*
-
-👤 *Informations Client:*
-• Nom: ${data.customerName}
-• Téléphone: ${data.phone}
-${data.address ? `• Adresse: ${data.address}` : ''}
-${data.notes ? `• Notes: ${data.notes}` : ''}
-
-📍 *Détails Livraison:*
-• Ville: ${selectedCity}
-• Date de commande: ${format(selectedDate, "EEEE dd MMMM yyyy", { locale: fr })}
-• Délai de livraison: ${cityData?.deliveryHours === 24 ? '24h' : '48h'}
-
-🍰 *Saveurs:*
-${surpriseMe 
-  ? '✨ Surprise! (Sélection du chef)' 
-  : excludedFlavors.length > 0
-    ? `• Saveurs incluses: ${includedFlavors.join(', ')}\n• Saveurs exclues: ${excludedFlavors.join(', ')}`
-    : `• Toutes les saveurs (${FLAVORS.length} saveurs)`
-}
-
-━━━━━━━━━━━━━━━━━
-📅 Commande passée le: ${format(new Date(), "dd/MM/yyyy 'à' HH:mm", { locale: fr })}
-`.trim();
+  🎉 *NOUVELLE COMMANDE MACARONESS* 🎉
+  
+  📦 *Détails de la commande:*
+  - Numéro: #${orderNum}
+  - Boîte: ${selectedBoxSize} pièces
+  - Prix boîte: ${boxPrice} MAD
+  - Livraison: ${deliveryPrice} MAD
+  - *TOTAL: ${total} MAD*
+  
+  👤 *Informations Client:*
+  - Nom: ${data.customerName}
+  - Téléphone: ${phoneForLink}
+  ${data.address ? `• Adresse: ${data.address}` : ''}
+  ${data.notes ? `• Notes: ${data.notes}` : ''}
+  
+  📍 *Détails Livraison:*
+  - Ville: ${selectedCity}
+  - Date de commande: ${format(selectedDate, "EEEE dd MMMM yyyy", { locale: fr })}
+  - Délai de livraison: ${cityData?.deliveryHours === 24 ? '24h' : '48h'}
+  
+  🍰 *Saveurs:*
+  ${surpriseMe 
+    ? '✨ Surprise! (Sélection du chef)' 
+    : excludedFlavors.length > 0
+      ? `• Saveurs incluses: ${includedFlavors.join(', ')}\n• Saveurs exclues: ${excludedFlavors.join(', ')}`
+      : `• Toutes les saveurs (${FLAVORS.length} saveurs)`
+  }
+  
+  ━━━━━━━━━━━━━━━━━
+  📅 Commande passée le: ${format(new Date(), "dd/MM/yyyy 'à' HH:mm", { locale: fr })}
+  `.trim();
     
     return message;
   };
