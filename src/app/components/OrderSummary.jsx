@@ -1,7 +1,7 @@
 "use client"
 import { BOX_SIZES, CITIES, FLAVORS } from "../Shared"
 
-export default function OrderSummary({ boxSize, excludedFlavors = [], surpriseMe, language, selectedCity }) {
+export default function OrderSummary({ boxSize, excludedFlavors = [], surpriseMe, language, selectedCity, selectedDate }) {
   const labels = {
     fr: {
       summary: "Récapitulatif",
@@ -16,6 +16,10 @@ export default function OrderSummary({ boxSize, excludedFlavors = [], surpriseMe
       total: "Total",
       noBox: "Votre boîte",
       included: "incluses",
+      orderDate: "Date de commande",
+      deliveryTime: "Délai de livraison",
+      hours24: "24 heures",
+      hours48: "48 heures",
     },
     ar: {
       summary: "الملخص",
@@ -30,12 +34,17 @@ export default function OrderSummary({ boxSize, excludedFlavors = [], surpriseMe
       total: "المجموع",
       noBox: "علبة",
       included: "مشمول",
+      orderDate: "تاريخ الطلب",
+      deliveryTime: "مدة التسليم",
+      hours24: "24 ساعة",
+      hours48: "48 ساعة",
     },
   };
 
   const selectedBox = BOX_SIZES.find((b) => b.pieces === boxSize);
   const selectedCityData = CITIES.find((c) => c.name === selectedCity);
   const deliveryPrice = selectedCityData?.deliveryPrice || 0;
+  const deliveryHours = selectedCityData?.deliveryHours || 24;
   const totalPrice = selectedBox ? selectedBox.price + deliveryPrice : 0;
   
   const includedCount = FLAVORS.length - excludedFlavors.length;
@@ -88,6 +97,29 @@ export default function OrderSummary({ boxSize, excludedFlavors = [], surpriseMe
             {deliveryPrice} MAD
           </span>
         </div>
+
+        {/* Order Date */}
+        {selectedDate && (
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">{labels[language].orderDate}</span>
+            <span className="font-medium text-gray-900">
+              {selectedDate.toLocaleDateString(language === 'fr' ? 'fr-FR' : 'ar-MA', { 
+                day: 'numeric', 
+                month: 'short' 
+              })}
+            </span>
+          </div>
+        )}
+
+        {/* Delivery Time */}
+        {selectedCity && (
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">{labels[language].deliveryTime}</span>
+            <span className="font-medium text-[#E18B73]">
+              {deliveryHours === 24 ? labels[language].hours24 : labels[language].hours48}
+            </span>
+          </div>
+        )}
       </div>
       
       {/* Total */}

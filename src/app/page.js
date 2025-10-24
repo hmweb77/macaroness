@@ -195,8 +195,8 @@ ${data.notes ? `• Notes: ${data.notes}` : ''}
 
 📍 *Détails Livraison:*
 • Ville: ${selectedCity}
-• Date: ${format(selectedDate, "EEEE dd MMMM yyyy", { locale: fr })}
-• Délai: ${cityData?.deliveryHours === 24 ? '24h' : '48h'}
+• Date de commande: ${format(selectedDate, "EEEE dd MMMM yyyy", { locale: fr })}
+• Délai de livraison: ${cityData?.deliveryHours === 24 ? '24h' : '48h'}
 
 🍰 *Saveurs:*
 ${surpriseMe 
@@ -539,6 +539,7 @@ ${surpriseMe
               surpriseMe={surpriseMe}
               language={language}
               selectedCity={selectedCity}
+              selectedDate={selectedDate}
             />
           </div>
         </div>
