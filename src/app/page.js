@@ -73,47 +73,55 @@ export default function Home() {
   const unsubscribeRef = useRef(null);
   
   // Subscribe to real-time capacity updates when date changes
-  useEffect(() => {
-    // Cleanup previous subscription
+useEffect(() => {
+  // Cleanup previous subscription
+  if (unsubscribeRef.current) {
+    unsubscribeRef.current();
+    unsubscribeRef.current = null;
+  }
+  
+  if (selectedDate) {
+    setIsLoadingCapacity(true);
+    
+    // Just READ the capacity, don't initialize
+    getRemainingCapacity(selectedDate)
+      .then(capacity => {
+        setRemainingCapacity(capacity);
+        setIsLoadingCapacity(false);
+        
+        // Subscribe to real-time updates
+        const unsubscribe = subscribeToCapacity(
+          selectedDate,
+          (capacity) => {
+            setRemainingCapacity(capacity);
+          },
+          (error) => {
+            // Error handler
+            console.error('Subscription error:', error);
+            setIsLoadingCapacity(false);
+            setRemainingCapacity(DAILY_CAPACITY);
+          }
+        );
+        
+        unsubscribeRef.current = unsubscribe;
+      })
+      .catch(error => {
+        console.error('Error getting capacity:', error);
+        setIsLoadingCapacity(false);
+        setRemainingCapacity(DAILY_CAPACITY);
+      });
+  } else {
+    setRemainingCapacity(DAILY_CAPACITY);
+    setIsLoadingCapacity(false);
+  }
+  
+  // Cleanup on unmount
+  return () => {
     if (unsubscribeRef.current) {
       unsubscribeRef.current();
-      unsubscribeRef.current = null;
     }
-    
-    if (selectedDate) {
-      setIsLoadingCapacity(true);
-      
-      // Initialize capacity for the date
-      initializeDailyCapacity(selectedDate)
-        .then(capacity => {
-          setRemainingCapacity(capacity);
-          setIsLoadingCapacity(false);
-          
-          // Subscribe to real-time updates
-          const unsubscribe = subscribeToCapacity(selectedDate, (capacity) => {
-            setRemainingCapacity(capacity);
-          });
-          
-          unsubscribeRef.current = unsubscribe;
-        })
-        .catch(error => {
-          console.error('Error initializing capacity:', error);
-          setIsLoadingCapacity(false);
-          // Fallback to default capacity
-          setRemainingCapacity(DAILY_CAPACITY);
-        });
-    } else {
-      setRemainingCapacity(DAILY_CAPACITY);
-    }
-    
-    // Cleanup on unmount
-    return () => {
-      if (unsubscribeRef.current) {
-        unsubscribeRef.current();
-      }
-    };
-  }, [selectedDate]);
-  
+  };
+}, [selectedDate]);
   // Utility Functions
   const showToast = (title, description, variant = "default") => {
     alert(`${title}\n${description}`);

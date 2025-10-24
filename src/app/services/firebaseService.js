@@ -59,79 +59,106 @@ import {
   /**
    * Get remaining capacity for a specific date
    */
-  export const getRemainingCapacity = async (date) => {
+ /**
+ * Get remaining capacity for a specific date (READ ONLY - more efficient)
+ */
+export const getRemainingCapacity = async (date) => {
     try {
       const dateKey = getDateKey(date);
       const capacityRef = doc(db, 'dailyCapacity', dateKey);
       const capacityDoc = await getDoc(capacityRef);
       
       if (!capacityDoc.exists()) {
-        // Initialize if doesn't exist
-        return await initializeDailyCapacity(date);
+        // Return default capacity without writing to DB
+        return DAILY_CAPACITY;
       }
       
       return capacityDoc.data().remainingCapacity;
     } catch (error) {
       console.error('Error getting remaining capacity:', error);
-      throw error;
+      return DAILY_CAPACITY; // Fallback to default
     }
   };
   
   /**
-   * Subscribe to real-time updates for daily capacity
+   * Initialize daily capacity only when needed (during order creation)
    */
-  export const subscribeToCapacity = (date, callback) => {
+  export const initializeDailyCapacityIfNeeded = async (date, transaction) => {
+    const dateKey = getDateKey(date);
+    const capacityRef = doc(db, 'dailyCapacity', dateKey);
+    const capacityDoc = await transaction.get(capacityRef);
+    
+    if (!capacityDoc.exists()) {
+      transaction.set(capacityRef, {
+        date: Timestamp.fromDate(date),
+        dateKey: dateKey,
+        totalCapacity: DAILY_CAPACITY,
+        remainingCapacity: DAILY_CAPACITY,
+        reservedPieces: 0,
+        lastUpdated: Timestamp.now(),
+        createdAt: Timestamp.now()
+      });
+      return DAILY_CAPACITY;
+    }
+    
+    return capacityDoc.data().remainingCapacity;
+  };
+  
+  /**
+   * Optimized subscription with error handling
+   */
+  export const subscribeToCapacity = (date, callback, onError) => {
     const dateKey = getDateKey(date);
     const capacityRef = doc(db, 'dailyCapacity', dateKey);
     
-    return onSnapshot(capacityRef, (doc) => {
-      if (doc.exists()) {
-        callback(doc.data().remainingCapacity);
-      } else {
-        // Initialize if doesn't exist
-        initializeDailyCapacity(date).then(capacity => {
-          callback(capacity);
-        });
+    return onSnapshot(
+      capacityRef,
+      (doc) => {
+        if (doc.exists()) {
+          callback(doc.data().remainingCapacity);
+        } else {
+          // Return default capacity without writing
+          callback(DAILY_CAPACITY);
+        }
+      },
+      (error) => {
+        console.error('Error subscribing to capacity:', error);
+        if (onError) onError(error);
+        // Fallback to default
+        callback(DAILY_CAPACITY);
       }
-    }, (error) => {
-      console.error('Error subscribing to capacity:', error);
-    });
+    );
   };
+  
+  
   
   /**
    * Create a new order and update capacity atomically
    */
-  export const createOrder = async (orderData) => {
+   export const createOrder = async (orderData) => {
     try {
       const dateKey = getDateKey(orderData.deliveryDate);
       const capacityRef = doc(db, 'dailyCapacity', dateKey);
       
-      // Use a transaction to ensure atomic operations
       const result = await runTransaction(db, async (transaction) => {
         const capacityDoc = await transaction.get(capacityRef);
         
-        // Initialize capacity if it doesn't exist
+        let currentRemaining = DAILY_CAPACITY;
+        let currentReserved = 0;
+        
+        // Initialize or get current capacity
         if (!capacityDoc.exists()) {
-          transaction.set(capacityRef, {
-            date: Timestamp.fromDate(orderData.deliveryDate),
-            dateKey: dateKey,
-            totalCapacity: DAILY_CAPACITY,
-            remainingCapacity: DAILY_CAPACITY,
-            reservedPieces: 0,
-            lastUpdated: Timestamp.now(),
-            createdAt: Timestamp.now()
-          });
+          // Initialize in transaction
+          await initializeDailyCapacityIfNeeded(orderData.deliveryDate, transaction);
+        } else {
+          const currentData = capacityDoc.data();
+          currentRemaining = currentData.remainingCapacity;
+          currentReserved = currentData.reservedPieces;
         }
         
-        // Get current capacity
-        const currentData = capacityDoc.exists() 
-          ? capacityDoc.data() 
-          : { remainingCapacity: DAILY_CAPACITY, reservedPieces: 0 };
+        const newRemaining = currentRemaining - orderData.boxSize;
+        const newReserved = currentReserved + orderData.boxSize;
         
-        const newRemaining = currentData.remainingCapacity - orderData.boxSize;
-        const newReserved = currentData.reservedPieces + orderData.boxSize;
-        
-        // Check if there's enough capacity
         if (newRemaining < 0) {
           throw new Error('Insufficient capacity for this date');
         }
@@ -143,7 +170,7 @@ import {
           lastUpdated: Timestamp.now()
         });
         
-        // Add the order to orders collection
+        // Add order
         const orderRef = doc(collection(db, 'orders'));
         transaction.set(orderRef, {
           ...orderData,
