@@ -12,6 +12,7 @@ import FlavorSelector from "./components/FlavorSelector";
 import CheckoutForm from "./components/CheckoutForm";
 import OrderSummary from "./components/OrderSummary";
 import OrderConfirmation from "./components/OrderConfirmation";
+import { getRemainingCapacity } from "./services/firebaseService";
 import {
   DAILY_CAPACITY,
   MIN_AVAILABLE_FOR_ORDER,
