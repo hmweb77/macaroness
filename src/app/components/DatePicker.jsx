@@ -32,7 +32,16 @@ export default function DatePicker({ selectedDate, onDateChange, language, deliv
     return minDate;
   };
 
-  const minimumDate = getMinimumDate();
+  // Set the absolute minimum date to November 3rd, 2025
+  const getAbsoluteMinimumDate = () => {
+    return new Date(2025, 10, 3); // Month is 0-indexed, so 10 = November
+  };
+
+  const calculatedMinDate = getMinimumDate();
+  const absoluteMinDate = getAbsoluteMinimumDate();
+  
+  // Use whichever date is later
+  const minimumDate = calculatedMinDate > absoluteMinDate ? calculatedMinDate : absoluteMinDate;
 
   // Generate calendar days
   const generateCalendarDays = () => {

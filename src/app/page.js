@@ -59,7 +59,7 @@ export default function Home() {
   const [selectedCity, setSelectedCity] = useState(null);
   const [selectedDate, setSelectedDate] = useState(undefined);
   const [selectedBoxSize, setSelectedBoxSize] = useState(null);
-  const [selectedFlavors, setSelectedFlavors] = useState([]);
+  const [excludedFlavors, setExcludedFlavors] = useState([]);
   const [surpriseMe, setSurpriseMe] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
   const [customerData, setCustomerData] = useState(null);
@@ -152,23 +152,17 @@ export default function Home() {
       
       if (boxData?.regionRestricted && !newCityData?.inSaleRabatRegion) {
         setSelectedBoxSize(null);
-        setSelectedFlavors([]);
+        setExcludedFlavors([]);
         setSurpriseMe(false);
       }
     }
   };
   
-  const handleSurpriseMeChange = (value, maxFlavors) => {
+  const handleSurpriseMeChange = (value) => {
     setSurpriseMe(value);
     if (value) {
-      // Randomly select flavors for surprise option
-      const randomFlavors = [...FLAVORS]
-        .sort(() => 0.5 - Math.random())
-        .slice(0, maxFlavors)
-        .map((f) => f.name);
-      setSelectedFlavors(randomFlavors);
-    } else {
-      setSelectedFlavors([]);
+      // Clear exclusions when surprise me is enabled
+      setExcludedFlavors([]);
     }
   };
   
@@ -178,6 +172,10 @@ export default function Home() {
     const deliveryPrice = cityData?.deliveryPrice || 0;
     const boxPrice = boxData?.price || 0;
     const total = boxPrice + deliveryPrice;
+    
+    const includedFlavors = FLAVORS
+      .filter(f => !excludedFlavors.includes(f.name))
+      .map(f => f.name);
     
     const message = `
 🎉 *NOUVELLE COMMANDE MACARONESS* 🎉
@@ -200,12 +198,12 @@ ${data.notes ? `• Notes: ${data.notes}` : ''}
 • Date: ${format(selectedDate, "EEEE dd MMMM yyyy", { locale: fr })}
 • Délai: ${cityData?.deliveryHours === 24 ? '24h' : '48h'}
 
-🍰 *Saveurs sélectionnées:*
+🍰 *Saveurs:*
 ${surpriseMe 
   ? '✨ Surprise! (Sélection du chef)' 
-  : selectedFlavors.length > 0 
-    ? selectedFlavors.map(f => `• ${f}`).join('\n')
-    : '• Aucune sélection de saveur requise'
+  : excludedFlavors.length > 0
+    ? `• Saveurs incluses: ${includedFlavors.join(', ')}\n• Saveurs exclues: ${excludedFlavors.join(', ')}`
+    : `• Toutes les saveurs (${FLAVORS.length} saveurs)`
 }
 
 ━━━━━━━━━━━━━━━━━
@@ -234,20 +232,6 @@ ${surpriseMe
       return;
     }
     
-    const boxData = BOX_SIZES.find((b) => b.pieces === selectedBoxSize);
-    const requiresFlavors = boxData && boxData.maxFlavors > 0;
-    
-    if (requiresFlavors && !surpriseMe && selectedFlavors.length === 0) {
-      showToast(
-        language === "fr" ? "Erreur" : "خطأ",
-        language === "fr"
-          ? "Veuillez sélectionner au moins une saveur"
-          : "يرجى اختيار نكهة واحدة على الأقل",
-        "destructive"
-      );
-      return;
-    }
-    
     // Check if there's enough capacity
     if (remainingCapacity < selectedBoxSize) {
       showToast(
@@ -267,10 +251,16 @@ ${surpriseMe
       const orderNum = generateOrderNumber();
       
       // Calculate prices
+      const boxData = BOX_SIZES.find((b) => b.pieces === selectedBoxSize);
       const cityData = CITIES.find((c) => c.name === selectedCity);
       const deliveryPrice = cityData?.deliveryPrice || 0;
       const boxPrice = boxData?.price || 0;
       const total = boxPrice + deliveryPrice;
+      
+      // Get included flavors
+      const includedFlavors = FLAVORS
+        .filter(f => !excludedFlavors.includes(f.name))
+        .map(f => f.name);
       
       // Prepare order data for Firebase
       const orderDataForFirebase = {
@@ -287,11 +277,8 @@ ${surpriseMe
         boxSize: selectedBoxSize,
         boxPrice: boxPrice,
         totalPrice: total,
-        flavors: surpriseMe 
-          ? ['Surprise'] 
-          : selectedFlavors.length > 0 
-            ? selectedFlavors
-            : [],
+        flavors: surpriseMe ? ['Surprise'] : includedFlavors,
+        excludedFlavors: surpriseMe ? [] : excludedFlavors,
         surpriseMe: surpriseMe,
         language: language
       };
@@ -314,9 +301,9 @@ ${surpriseMe
         totalPrice: `${total} MAD`,
         flavors: surpriseMe 
           ? 'Surprise' 
-          : selectedFlavors.length > 0 
-            ? selectedFlavors.join(', ')
-            : 'Aucune',
+          : excludedFlavors.length > 0 
+            ? `Incluses: ${includedFlavors.join(', ')} | Exclues: ${excludedFlavors.join(', ')}`
+            : 'Toutes les saveurs',
         surpriseMe: surpriseMe,
         orderDateTime: format(new Date(), "dd/MM/yyyy HH:mm", { locale: fr })
       };
@@ -379,7 +366,7 @@ ${surpriseMe
     setSelectedCity(null);
     setSelectedDate(undefined);
     setSelectedBoxSize(null);
-    setSelectedFlavors([]);
+    setExcludedFlavors([]);
     setSurpriseMe(false);
     setOrderNumber("");
     setCustomerData(null);
@@ -393,8 +380,7 @@ ${surpriseMe
   const inSaleRabatRegion = selectedCityData?.inSaleRabatRegion || false;
   
   const selectedBoxData = BOX_SIZES.find((b) => b.pieces === selectedBoxSize);
-  const maxFlavors = selectedBoxData?.maxFlavors || 0;
-  const needsFlavorSelection = maxFlavors > 0;
+  const maxExclusions = selectedBoxData?.maxExclusions || 3;
   
   const canCheckout =
     selectedCity &&
@@ -402,8 +388,7 @@ ${surpriseMe
     selectedBoxSize &&
     !isLoadingCapacity &&
     remainingCapacity >= MIN_AVAILABLE_FOR_ORDER &&
-    remainingCapacity >= selectedBoxSize &&
-    (!needsFlavorSelection || surpriseMe || selectedFlavors.length > 0);
+    remainingCapacity >= selectedBoxSize;
   
   // Render Confirmation Page
   if (showConfirmation && selectedDate && selectedBoxSize) {
@@ -504,14 +489,15 @@ ${surpriseMe
                   inSaleRabatRegion={inSaleRabatRegion}
                 />
                 
-                {selectedBoxSize && needsFlavorSelection && (
+                {/* ALWAYS show flavor selector when box is selected */}
+                {selectedBoxSize && (
                   <FlavorSelector
-                    selectedFlavors={selectedFlavors}
-                    onFlavorsChange={setSelectedFlavors}
+                    excludedFlavors={excludedFlavors}
+                    onExcludedFlavorsChange={setExcludedFlavors}
                     surpriseMe={surpriseMe}
-                    onSurpriseMeChange={(value) => handleSurpriseMeChange(value, maxFlavors)}
+                    onSurpriseMeChange={handleSurpriseMeChange}
                     language={language}
-                    maxFlavors={maxFlavors}
+                    maxExclusions={maxExclusions}
                   />
                 )}
                 
@@ -549,7 +535,7 @@ ${surpriseMe
           <div className="lg:col-span-1">
             <OrderSummary
               boxSize={selectedBoxSize}
-              selectedFlavors={selectedFlavors}
+              excludedFlavors={excludedFlavors}
               surpriseMe={surpriseMe}
               language={language}
               selectedCity={selectedCity}

@@ -1,13 +1,14 @@
 // Constants
 export const DAILY_CAPACITY = 648;
 export const MIN_AVAILABLE_FOR_ORDER = 6;
+export const MAX_FLAVOR_EXCLUSIONS = 3; // Maximum flavors a customer can exclude
 
 // Box Sizes Configuration
 export const BOX_SIZES = [
-  { pieces: 6, price: 25, label: "6 pcs", maxFlavors: 0, regionRestricted: true },
-  { pieces: 12, price: 50, label: "12 pcs", maxFlavors: 0, regionRestricted: true },
-  { pieces: 24, price: 95, label: "24 pcs", maxFlavors: 6, regionRestricted: false },
-  { pieces: 36, price: 135, label: "36 pcs", bestSeller: true, maxFlavors: 9, regionRestricted: false },
+  { pieces: 6, price: 25, label: "6 pcs", maxExclusions: 3, regionRestricted: true },
+  { pieces: 12, price: 50, label: "12 pcs", maxExclusions: 3, regionRestricted: true },
+  { pieces: 24, price: 95, label: "24 pcs", maxExclusions: 3, regionRestricted: false },
+  { pieces: 36, price: 135, label: "36 pcs", bestSeller: true, maxExclusions: 3, regionRestricted: false },
 ];
 
 // Flavors Configuration
@@ -177,4 +178,9 @@ export const getBoxSize = (pieces) => {
 // Helper function to get flavor by name
 export const getFlavorByName = (flavorName) => {
   return FLAVORS.find(flavor => flavor.name === flavorName);
+};
+
+// Helper function to get included flavors from excluded list
+export const getIncludedFlavors = (excludedFlavors = []) => {
+  return FLAVORS.filter(flavor => !excludedFlavors.includes(flavor.name));
 };

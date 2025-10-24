@@ -4,6 +4,7 @@ import {
     addDoc, 
     doc, 
     getDoc, 
+    getDocs, 
     setDoc, 
     updateDoc, 
     onSnapshot,

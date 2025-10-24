@@ -1,7 +1,7 @@
 "use client"
-import { BOX_SIZES, CITIES } from "../Shared"
+import { BOX_SIZES, CITIES, FLAVORS } from "../Shared"
 
-export default function OrderSummary({ boxSize, selectedFlavors, surpriseMe, language, selectedCity }) {
+export default function OrderSummary({ boxSize, excludedFlavors = [], surpriseMe, language, selectedCity }) {
   const labels = {
     fr: {
       summary: "Récapitulatif",
@@ -9,10 +9,13 @@ export default function OrderSummary({ boxSize, selectedFlavors, surpriseMe, lan
       pieces: "pcs",
       price: "Prix",
       flavors: "Saveurs",
+      allFlavors: "Toutes incluses",
+      excluded: "Exclues",
       surprise: "Mélange surprise",
       delivery: "Livraison",
       total: "Total",
       noBox: "Votre boîte",
+      included: "incluses",
     },
     ar: {
       summary: "الملخص",
@@ -20,10 +23,13 @@ export default function OrderSummary({ boxSize, selectedFlavors, surpriseMe, lan
       pieces: "قطعة",
       price: "السعر",
       flavors: "النكهات",
+      allFlavors: "الكل مشمول",
+      excluded: "مستبعد",
       surprise: "مزيج مفاجئ",
       delivery: "التوصيل",
       total: "المجموع",
       noBox: "علبة",
+      included: "مشمول",
     },
   };
 
@@ -31,6 +37,8 @@ export default function OrderSummary({ boxSize, selectedFlavors, surpriseMe, lan
   const selectedCityData = CITIES.find((c) => c.name === selectedCity);
   const deliveryPrice = selectedCityData?.deliveryPrice || 0;
   const totalPrice = selectedBox ? selectedBox.price + deliveryPrice : 0;
+  
+  const includedCount = FLAVORS.length - excludedFlavors.length;
 
   if (!boxSize || !selectedBox) {
     return (
@@ -58,7 +66,12 @@ export default function OrderSummary({ boxSize, selectedFlavors, surpriseMe, lan
         <div className="flex justify-between items-center">
           <span className="text-gray-600">{labels[language].flavors}</span>
           <span className="font-medium text-gray-900">
-            {surpriseMe ? labels[language].surprise : `${selectedFlavors.length}/${boxSize}`}
+            {surpriseMe 
+              ? labels[language].surprise 
+              : excludedFlavors.length === 0 
+                ? labels[language].allFlavors
+                : `${includedCount} ${labels[language].included}`
+            }
           </span>
         </div>
 
@@ -87,21 +100,32 @@ export default function OrderSummary({ boxSize, selectedFlavors, surpriseMe, lan
         </div>
       </div>
       
-      {/* Selected Flavors Tags */}
-      {!surpriseMe && selectedFlavors.length > 0 && (
+      {/* Excluded Flavors Tags */}
+      {!surpriseMe && excludedFlavors.length > 0 && (
         <div className="border-t border-gray-200 pt-4">
           <p className="text-sm font-medium text-gray-600 mb-2">
-            {labels[language].flavors}:
+            {labels[language].excluded}:
           </p>
           <div className="flex flex-wrap gap-2">
-            {selectedFlavors.map((flavor) => (
+            {excludedFlavors.map((flavor) => (
               <span
                 key={flavor}
-                className="px-3 py-1 rounded-full bg-blue-100 text-[#E18B73] text-xs font-medium"
+                className="px-3 py-1 rounded-full bg-red-100 text-red-600 text-xs font-medium"
               >
                 {flavor}
               </span>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* All Flavors Included Message */}
+      {!surpriseMe && excludedFlavors.length === 0 && (
+        <div className="border-t border-gray-200 pt-4">
+          <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+            <p className="text-sm text-green-700 font-medium text-center">
+              ✓ {labels[language].allFlavors}
+            </p>
           </div>
         </div>
       )}
