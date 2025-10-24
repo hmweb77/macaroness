@@ -1,5 +1,5 @@
 "use client"
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import Navbar from "./components/NavBar";
@@ -19,30 +19,32 @@ import {
   CITIES,
   BOX_SIZES,
 } from "./Shared";
+import {
+  createOrder,
+  subscribeToCapacity,
+  initializeDailyCapacity
+} from "./services/firebaseService";
 
-// Google Sheets configuration
+// Configuration
 const GOOGLE_SCRIPT_URL = process.env.NEXT_PUBLIC_GOOGLE_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbyCaJ8sXxOrIPs6PT-5HTYMG3Q8OHhc4H5s3YmzpJnzkYJSS2g9Cq8PGzXMqXhXzMM/exec';
 const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "212621526099";
 
-// Function to save order to Google Sheets
+// Function to save order to Google Sheets (backup)
 const saveOrderToSheets = async (orderData) => {
   try {
     const response = await fetch(GOOGLE_SCRIPT_URL, {
       method: 'POST',
-      mode: 'no-cors', // Google Apps Script doesn't support CORS
+      mode: 'no-cors',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(orderData)
     });
     
-    // Since we're using no-cors, we won't get the actual response
-    // but the request will still be processed by Google Apps Script
     console.log('Order saved to Google Sheets');
     return { success: true };
   } catch (error) {
     console.error('Error saving to Google Sheets:', error);
-    // Don't block the order if sheets fails
     return { success: false, error: error.message };
   }
 };
@@ -62,11 +64,55 @@ export default function Home() {
   const [orderNumber, setOrderNumber] = useState("");
   const [customerData, setCustomerData] = useState(null);
   
+  // Firebase State
+  const [remainingCapacity, setRemainingCapacity] = useState(DAILY_CAPACITY);
+  const [isLoadingCapacity, setIsLoadingCapacity] = useState(false);
+  
   // Refs
   const orderSectionRef = useRef(null);
+  const unsubscribeRef = useRef(null);
   
-  // Mock data - Replace with real API call
-  const remainingCapacity = 648;
+  // Subscribe to real-time capacity updates when date changes
+  useEffect(() => {
+    // Cleanup previous subscription
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+      unsubscribeRef.current = null;
+    }
+    
+    if (selectedDate) {
+      setIsLoadingCapacity(true);
+      
+      // Initialize capacity for the date
+      initializeDailyCapacity(selectedDate)
+        .then(capacity => {
+          setRemainingCapacity(capacity);
+          setIsLoadingCapacity(false);
+          
+          // Subscribe to real-time updates
+          const unsubscribe = subscribeToCapacity(selectedDate, (capacity) => {
+            setRemainingCapacity(capacity);
+          });
+          
+          unsubscribeRef.current = unsubscribe;
+        })
+        .catch(error => {
+          console.error('Error initializing capacity:', error);
+          setIsLoadingCapacity(false);
+          // Fallback to default capacity
+          setRemainingCapacity(DAILY_CAPACITY);
+        });
+    } else {
+      setRemainingCapacity(DAILY_CAPACITY);
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
+    };
+  }, [selectedDate]);
   
   // Utility Functions
   const showToast = (title, description, variant = "default") => {
@@ -202,6 +248,18 @@ ${surpriseMe
       return;
     }
     
+    // Check if there's enough capacity
+    if (remainingCapacity < selectedBoxSize) {
+      showToast(
+        language === "fr" ? "Capacité insuffisante" : "سعة غير كافية",
+        language === "fr"
+          ? `Il ne reste que ${remainingCapacity} pièces disponibles pour cette date`
+          : `هناك فقط ${remainingCapacity} قطعة متاحة لهذا التاريخ`,
+        "destructive"
+      );
+      return;
+    }
+    
     setIsSubmitting(true);
     
     try {
@@ -214,7 +272,36 @@ ${surpriseMe
       const boxPrice = boxData?.price || 0;
       const total = boxPrice + deliveryPrice;
       
-      // Prepare order data for Google Sheets
+      // Prepare order data for Firebase
+      const orderDataForFirebase = {
+        orderNumber: orderNum,
+        customerName: data.customerName,
+        phone: data.phone,
+        address: data.address || '',
+        notes: data.notes || '',
+        city: selectedCity,
+        cityArabic: cityData?.nameAr || '',
+        deliveryDate: selectedDate,
+        deliveryHours: cityData?.deliveryHours || 24,
+        deliveryPrice: deliveryPrice,
+        boxSize: selectedBoxSize,
+        boxPrice: boxPrice,
+        totalPrice: total,
+        flavors: surpriseMe 
+          ? ['Surprise'] 
+          : selectedFlavors.length > 0 
+            ? selectedFlavors
+            : [],
+        surpriseMe: surpriseMe,
+        language: language
+      };
+      
+      // Save to Firebase (this will also update capacity)
+      const firebaseResult = await createOrder(orderDataForFirebase);
+      
+      console.log('Order saved to Firebase:', firebaseResult);
+      
+      // Prepare order data for Google Sheets (backup)
       const orderDataForSheets = {
         orderNumber: orderNum,
         customerName: data.customerName,
@@ -234,12 +321,10 @@ ${surpriseMe
         orderDateTime: format(new Date(), "dd/MM/yyyy HH:mm", { locale: fr })
       };
       
-      // Save to Google Sheets (non-blocking)
+      // Save to Google Sheets (non-blocking backup)
       saveOrderToSheets(orderDataForSheets).then(result => {
         if (result.success) {
-          console.log('Order successfully saved to Google Sheets');
-        } else {
-          console.log('Failed to save to Google Sheets, but order continues');
+          console.log('Order successfully saved to Google Sheets (backup)');
         }
       });
       
@@ -247,36 +332,42 @@ ${surpriseMe
       setCustomerData(data);
       setOrderNumber(orderNum);
       
-      // Show loading message
+      // Show success message
       showToast(
-        language === "fr" ? "Traitement..." : "معالجة...",
+        language === "fr" ? "Succès !" : "نجاح!",
         language === "fr" 
-          ? "Enregistrement de votre commande..." 
-          : "جاري حفظ طلبك...",
+          ? "Votre commande a été enregistrée" 
+          : "تم حفظ طلبك",
         "default"
       );
       
-      // Wait a bit to ensure Google Sheets request is sent
+      // Format and send WhatsApp message
+      const whatsappMessage = formatWhatsAppMessage(data, orderNum);
+      sendToWhatsApp(whatsappMessage);
+      
+      // Show confirmation page
       setTimeout(() => {
-        // Format and send WhatsApp message
-        const whatsappMessage = formatWhatsAppMessage(data, orderNum);
-        sendToWhatsApp(whatsappMessage);
-        
-        // Show confirmation page after a brief delay
-        setTimeout(() => {
-          setShowConfirmation(true);
-          setIsSubmitting(false);
-        }, 500);
-      }, 1000);
+        setShowConfirmation(true);
+        setIsSubmitting(false);
+      }, 500);
       
     } catch (error) {
       console.error('Error processing order:', error);
       setIsSubmitting(false);
+      
+      let errorMessage = language === "fr"
+        ? "Une erreur s'est produite. Veuillez réessayer."
+        : "حدث خطأ. يرجى المحاولة مرة أخرى.";
+      
+      if (error.message === 'Insufficient capacity for this date') {
+        errorMessage = language === "fr"
+          ? "Capacité insuffisante pour cette date. Veuillez rafraîchir la page."
+          : "سعة غير كافية لهذا التاريخ. يرجى تحديث الصفحة.";
+      }
+      
       showToast(
         language === "fr" ? "Erreur" : "خطأ",
-        language === "fr"
-          ? "Une erreur s'est produite. Veuillez réessayer."
-          : "حدث خطأ. يرجى المحاولة مرة أخرى.",
+        errorMessage,
         "destructive"
       );
     }
@@ -292,6 +383,7 @@ ${surpriseMe
     setSurpriseMe(false);
     setOrderNumber("");
     setCustomerData(null);
+    setRemainingCapacity(DAILY_CAPACITY);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   
@@ -308,7 +400,9 @@ ${surpriseMe
     selectedCity &&
     selectedDate &&
     selectedBoxSize &&
+    !isLoadingCapacity &&
     remainingCapacity >= MIN_AVAILABLE_FOR_ORDER &&
+    remainingCapacity >= selectedBoxSize &&
     (!needsFlavorSelection || surpriseMe || selectedFlavors.length > 0);
   
   // Render Confirmation Page
@@ -382,16 +476,26 @@ ${surpriseMe
                 />
                 
                 {selectedDate && (
-                  <AvailabilityBar
-                    remaining={remainingCapacity}
-                    language={language}
-                  />
+                  <>
+                    {isLoadingCapacity ? (
+                      <div className="p-6 rounded-2xl bg-white border border-gray-200 shadow-lg">
+                        <p className="text-center text-gray-600">
+                          {language === "fr" ? "Chargement..." : "جاري التحميل..."}
+                        </p>
+                      </div>
+                    ) : (
+                      <AvailabilityBar
+                        remaining={remainingCapacity}
+                        language={language}
+                      />
+                    )}
+                  </>
                 )}
               </div>
             )}
             
             {/* Box and Flavor Selection (shows after date selection) */}
-            {selectedCity && selectedDate && remainingCapacity >= MIN_AVAILABLE_FOR_ORDER && (
+            {selectedCity && selectedDate && !isLoadingCapacity && remainingCapacity >= MIN_AVAILABLE_FOR_ORDER && (
               <>
                 <BoxSelector
                   selectedBoxSize={selectedBoxSize}
@@ -425,7 +529,7 @@ ${surpriseMe
             )}
             
             {/* Sold Out Message */}
-            {selectedCity && selectedDate && remainingCapacity < MIN_AVAILABLE_FOR_ORDER && (
+            {selectedCity && selectedDate && !isLoadingCapacity && remainingCapacity < MIN_AVAILABLE_FOR_ORDER && (
               <div className="p-8 rounded-2xl bg-red-50 border border-red-200 text-center">
                 <p className="text-2xl font-serif font-semibold text-red-600">
                   {language === "fr"
