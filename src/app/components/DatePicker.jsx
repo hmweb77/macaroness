@@ -10,11 +10,11 @@ export default function DatePicker({ selectedDate, onDateChange, language, deliv
 
   const labels = {
     fr: {
-      selectDate: "Choisir une date de livraison",
+      selectDate: "Choisir la date de commande, livraison apres 24h ou 48h de la date de commande",
       selected: "Date sélectionnée",
     },
     ar: {
-      selectDate: "اختر تاريخ التسليم",
+      selectDate: "اختر تاريخ الطلب، والتوصيل يتم بعد 24 أو 48 ساعة من تاريخ الطلب.",
       selected: "التاريخ المحدد",
     },
   };
@@ -116,7 +116,7 @@ export default function DatePicker({ selectedDate, onDateChange, language, deliv
               {format(selectedDate, "PPP", { locale: fr })}
             </span>
           ) : (
-            <span className="text-gray-400">{labels[language].selectDate}</span>
+            <span className="text-gray-400 text-xs">{labels[language].selectDate}</span>
           )}
         </button>
 
