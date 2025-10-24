@@ -12,6 +12,7 @@ import FlavorSelector from "./components/FlavorSelector";
 import CheckoutForm from "./components/CheckoutForm";
 import OrderSummary from "./components/OrderSummary";
 import OrderConfirmation from "./components/OrderConfirmation";
+import { sendOrderToTelegram } from "./services/telegramService";
 import { getRemainingCapacity } from "./services/firebaseService";
 import {
   DAILY_CAPACITY,
@@ -28,7 +29,7 @@ import {
 
 // Configuration
 const GOOGLE_SCRIPT_URL = process.env.NEXT_PUBLIC_GOOGLE_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbyCaJ8sXxOrIPs6PT-5HTYMG3Q8OHhc4H5s3YmzpJnzkYJSS2g9Cq8PGzXMqXhXzMM/exec';
-const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "212621526099";
+
 
 // Function to save order to Google Sheets (backup)
 const saveOrderToSheets = async (orderData) => {
@@ -175,64 +176,7 @@ useEffect(() => {
     }
   };
   
-  const formatWhatsAppMessage = (data, orderNum) => {
-    const boxData = BOX_SIZES.find((b) => b.pieces === selectedBoxSize);
-    const cityData = CITIES.find((c) => c.name === selectedCity);
-    const deliveryPrice = cityData?.deliveryPrice || 0;
-    const boxPrice = boxData?.price || 0;
-    const total = boxPrice + deliveryPrice;
-    
-    const includedFlavors = FLAVORS
-      .filter(f => !excludedFlavors.includes(f.name))
-      .map(f => f.name);
-    
-    // Format phone number for WhatsApp link (remove spaces, dashes, etc.)
-    const cleanPhone = data.phone.replace(/[\s\-\(\)]/g, '');
-    // Ensure phone starts with country code
-    const phoneForLink = cleanPhone.startsWith('+') ? cleanPhone : `+${cleanPhone}`;
-    
-    const message = `
-  🎉 *NOUVELLE COMMANDE MACARONESS* 🎉
-  
-  📦 *Détails de la commande:*
-  - Numéro: #${orderNum}
-  - Boîte: ${selectedBoxSize} pièces
-  - Prix boîte: ${boxPrice} MAD
-  - Livraison: ${deliveryPrice} MAD
-  - *TOTAL: ${total} MAD*
-  
-  👤 *Informations Client:*
-  - Nom: ${data.customerName}
-  - Téléphone: ${phoneForLink}
-  ${data.address ? `• Adresse: ${data.address}` : ''}
-  ${data.notes ? `• Notes: ${data.notes}` : ''}
-  
-  📍 *Détails Livraison:*
-  - Ville: ${selectedCity}
-  - Date de commande: ${format(selectedDate, "EEEE dd MMMM yyyy", { locale: fr })}
-  - Délai de livraison: ${cityData?.deliveryHours === 24 ? '24h' : '48h'}
-  
-  🍰 *Saveurs:*
-  ${surpriseMe 
-    ? '✨ Surprise! (Sélection du chef)' 
-    : excludedFlavors.length > 0
-      ? `• Saveurs incluses: ${includedFlavors.join(', ')}\n• Saveurs exclues: ${excludedFlavors.join(', ')}`
-      : `• Toutes les saveurs (${FLAVORS.length} saveurs)`
-  }
-  
-  ━━━━━━━━━━━━━━━━━
-  📅 Commande passée le: ${format(new Date(), "dd/MM/yyyy 'à' HH:mm", { locale: fr })}
-  `.trim();
-    
-    return message;
-  };
-  
-  const sendToWhatsApp = (message) => {
-    const encodedMessage = encodeURIComponent(message);
-    const whatsappURL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodedMessage}`;
-    window.open(whatsappURL, '_blank');
-  };
-  
+ 
   const handleSubmit = async (data) => {
     // Validation
     if (!selectedCity || !selectedDate || !selectedBoxSize) {
@@ -342,9 +286,15 @@ useEffect(() => {
         "default"
       );
       
-      // Format and send WhatsApp message
-      const whatsappMessage = formatWhatsAppMessage(data, orderNum);
-      sendToWhatsApp(whatsappMessage);
+      // 🆕 Send to Telegram (automatic notification)
+      const telegramResult = await sendOrderToTelegram(orderDataForFirebase);
+      if (telegramResult.success) {
+        console.log('✅ Telegram notification sent! Message ID:', telegramResult.messageId);
+      } else {
+        console.error('⚠️ Telegram notification failed:', telegramResult.error);
+        // Order is still saved to Firebase and Sheets, just notification failed
+        // Don't block user experience - they don't need to know about notification failure
+      }
       
       // Show confirmation page
       setTimeout(() => {
@@ -373,6 +323,9 @@ useEffect(() => {
       );
     }
   };
+
+  
+ 
   
   const handleNewOrder = () => {
     // Reset all state
