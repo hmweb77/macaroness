@@ -70,7 +70,14 @@ export default function DatePicker({ selectedDate, onDateChange, language, deliv
 
   const isDateDisabled = (date) => {
     if (!date) return true;
-    return date < minimumDate;
+    
+    // Check if date is before minimum date
+    if (date < minimumDate) return true;
+    
+    // Check if date is a Sunday (0 = Sunday)
+    if (date.getDay() === 0) return true;
+    
+    return false;
   };
 
   const isDateSelected = (date) => {
