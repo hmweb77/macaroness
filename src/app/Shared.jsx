@@ -1,5 +1,5 @@
 // Constants
-export const DAILY_CAPACITY = 648;
+export const DAILY_CAPACITY = 792;
 export const MIN_AVAILABLE_FOR_ORDER = 6;
 export const MAX_FLAVOR_EXCLUSIONS = 3; // Maximum flavors a customer can exclude
 

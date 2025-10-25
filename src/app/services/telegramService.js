@@ -101,7 +101,7 @@ const formatOrderMessage = (data) => {
   } else if (excludedFlavors && excludedFlavors.length > 0) {
     const includedList = flavors.join(', ');
     const excludedList = excludedFlavors.join(', ');
-    flavorText = `• Incluses: ${includedList}\n• Exclues: ${excludedList}`;
+    flavorText = `• Exclues: ${excludedList}`;
   } else {
     flavorText = `• Toutes les saveurs (${flavors.length} saveurs)`;
   }
