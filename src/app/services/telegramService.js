@@ -90,9 +90,12 @@ const formatOrderMessage = (data) => {
     formattedDate = 'Date non disponible';
   }
 
+  // Keep phone number exactly as entered by user
+const phoneDisplay = phone;
+
   // Create clickable phone number
-  const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
-  const phoneForLink = cleanPhone.startsWith('+') ? cleanPhone : `+${cleanPhone}`;
+  // const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+  // const phoneForLink = cleanPhone.startsWith('+') ? cleanPhone : `+${cleanPhone}`;
 
   // Format flavors
   let flavorText;
@@ -118,7 +121,7 @@ const formatOrderMessage = (data) => {
 
 👤 *Informations Client:*
 - Nom: *${customerName}*
-- Téléphone: ${phoneForLink}
+- Téléphone: ${phoneDisplay}
 ${address ? `• Adresse: ${address}` : ''}
 ${notes ? `• Notes: _${notes}_` : ''}
 
